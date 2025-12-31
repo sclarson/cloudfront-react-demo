@@ -1,0 +1,122 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter and formatter
+        run: npm run check
+
+      - name: Check for uncommitted changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "Error: Files were modified by check script. Please run 'npm run check' locally and commit the changes."
+            git status --porcelain
+            exit 1
+          fi
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test
+
+  build:
+    runs-on: ubuntu-latest
+
+    outputs:
+      deploy_path: ${{ steps.set-path.outputs.deploy_path }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set PR Deployment Path
+        id: set-path
+        run: echo "deploy_path=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+
+      - name: Build project
+        env:
+          BASE_URL: /${{ steps.set-path.outputs.deploy_path }}/
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: ./dist
+          retention-days: 1
+
+  deploy_staging:
+    permissions:
+      id-token: write # required for requesting the JWT
+      pull-requests: write # required for commenting on PR
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: ./dist
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-2
+          role-to-assume: ${{ secrets.STAGING_DEPLOY_AWS_ARN }}
+          role-session-name: cf-demo-react-pr-deploy-${{ github.event.pull_request.number }}
+
+      - name: Deploy to S3 (Preview)
+        run: aws s3 sync ./dist s3://${{ secrets.STAGING_AWS_S3_BUCKET_NAME }}/${{ needs.build.outputs.deploy_path }} --delete
+
+      - name: Invalidate CloudFront Cache
+        run: aws cloudfront create-invalidation --distribution-id ${{ secrets.STAGING_CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+
+      - name: Post PR Comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        env:
+          TARGET_URL: https://${{ secrets.STAGING_CLOUDFRONT_DISTRIBUTION_DOMAIN_NAME }}/${{ needs.build.outputs.deploy_path }}/index.html
+        with:
+          message: |
+            ## 🚀 [Preview Deployed](${{ env.TARGET_URL }})
