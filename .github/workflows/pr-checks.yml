@@ -119,4 +119,3 @@ jobs:
           echo "### 🚀 Preview Deployment" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Preview URL: https://${{ secrets.STAGING_CLOUDFRONT_DISTRIBUTION_DOMAIN_NAME }}/${{ needs.build.outputs.deploy_path }}/index.html" >> $GITHUB_STEP_SUMMARY
-
