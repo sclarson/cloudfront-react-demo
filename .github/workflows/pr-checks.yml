@@ -7,58 +7,66 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
-      - name: Run linter
-        run: npm run lint
-  
+
+      - name: Run linter and formatter
+        run: npm run check
+
+      - name: Check for uncommitted changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "Error: Files were modified by check script. Please run 'npm run check' locally and commit the changes."
+            git status --porcelain
+            exit 1
+          fi
+
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run tests
         run: npm run test
-  
+
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build project
         run: npm run build
 
@@ -74,5 +82,5 @@ jobs:
       - name: Comment on PR with Preview URL
         uses: thollander/actions-comment-pull-request@v3
         with:
-          message: "🚀 Preview deployed: [View Preview](https://${{ secrets.STAGING_CLOUDFRONT_DISTRIBUTION_DOMAIN_NAME }}/${{ env.DEPLOY_PATH }}/index.html)"
+          message: '🚀 Preview deployed: [View Preview](https://${{ secrets.STAGING_CLOUDFRONT_DISTRIBUTION_DOMAIN_NAME }}/${{ env.DEPLOY_PATH }}/index.html)'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
