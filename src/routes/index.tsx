@@ -14,6 +14,9 @@ function App() {
           className="h-[40vmin] pointer-events-none animate-[spin_20s_linear_infinite]"
           alt="logo"
         />
+        <p className="text-2xl font-bold mb-4">
+          Welcome to pull request 1
+        </p>
         <p>
           Edit <code>src/routes/index.tsx</code> and save to reload.
         </p>
