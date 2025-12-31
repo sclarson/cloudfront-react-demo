@@ -114,8 +114,9 @@ jobs:
       - name: Invalidate CloudFront Cache
         run: aws cloudfront create-invalidation --distribution-id ${{ secrets.STAGING_CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
 
-      - name: Comment on PR with Preview URL
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          message: '🚀 Preview deployed: [View Preview](https://${{ secrets.STAGING_CLOUDFRONT_DISTRIBUTION_DOMAIN_NAME }}/${{ needs.build.outputs.deploy_path }}/index.html)'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add Preview URL to Summary
+        run: |
+          echo "### 🚀 Preview Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Preview URL: https://${{ secrets.STAGING_CLOUDFRONT_DISTRIBUTION_DOMAIN_NAME }}/${{ needs.build.outputs.deploy_path }}/index.html" >> $GITHUB_STEP_SUMMARY
+
